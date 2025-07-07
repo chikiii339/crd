@@ -1,50 +1,61 @@
-import os
-import subprocess
-import getpass
+print("RDP Installer - Clean Version with LXQt Desktop")
+import os, subprocess, getpass
 
-print("== LXQt RDP User Setup - Clean & Lightweight ==")
-
-# User input
 username = input("Enter your username: ").strip()
 password = getpass.getpass("Enter a password (hidden): ")
 
-if not username or not password:
-    print("❌ Username and password cannot be empty.")
-    exit(1)
+print("Creating user...")
 
-print(f"👤 Creating user `{username}`...")
-# Create user with no password prompt on creation
 subprocess.run(['adduser', '--disabled-password', '--gecos', '', username])
-# Set password securely
-subprocess.run(['bash', '-c', f'echo "{username}:{password}" | chpasswd'])
-# Add to sudo group
 subprocess.run(['usermod', '-aG', 'sudo', username])
-# Set shell to bash
+subprocess.run(['bash', '-c', f'echo "{username}:{password}" | chpasswd'])
 subprocess.run(['chsh', '-s', '/bin/bash', username])
+print(f"✅ User `{username}` created.")
 
-print(f"✅ User `{username}` created.\n")
+CRP = input("Paste your Chrome Remote Desktop command: ").strip()
+Pin = getpass.getpass("Enter your CRD PIN (min 6 digits, hidden): ").strip()
 
-class LXQtInstaller:
+class CRD:
     def __init__(self, user):
-        self.user = user
-        self.install_packages()
-        self.setup_crd_session()
-        print("✅ LXQt installed and configured. Ready for Chrome Remote Desktop.")
+        os.system("apt update")
+        self.installCRD()
+        self.installDesktopEnvironment()
+        self.finish(user)
+        print("✅ Setup complete. Go to https://remotedesktop.google.com/access")
 
-    def install_packages(self):
-        print("📦 Installing LXQt (lightweight desktop)...")
-        subprocess.run(['apt', 'update'])
-        subprocess.run(['apt', 'install', '-y', 
-                        'lxqt', 'sddm', 'openbox', 'dbus-x11',
-                        'xscreensaver'])  # xscreensaver needed for CRD
+    @staticmethod
+    def installCRD():
+        print("📦 Installing Chrome Remote Desktop...")
+        subprocess.run(['wget', 'https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb'])
+        subprocess.run(['dpkg', '--install', 'chrome-remote-desktop_current_amd64.deb'])
+        subprocess.run(['apt', 'install', '--assume-yes', '--fix-broken'])
+
+    @staticmethod
+    def installDesktopEnvironment():
+        print("🖥 Installing LXQt Desktop Environment...")
+        os.environ["DEBIAN_FRONTEND"] = "noninteractive"
+        subprocess.run([
+            'apt', 'install', '-y',
+            'lxqt', 'openbox', 'sddm', 'dbus-x11', 'xscreensaver'
+        ])
         subprocess.run(['systemctl', 'disable', 'sddm.service'], stderr=subprocess.DEVNULL)
 
-    def setup_crd_session(self):
-        print("🧩 Setting CRD session to start LXQt...")
-        with open("/etc/chrome-remote-desktop-session", "w") as f:
-            f.write("exec startlxqt\n")
+        with open('/etc/chrome-remote-desktop-session', 'w') as f:
+            f.write('exec startlxqt\n')
+
+    @staticmethod
+    def finish(user):
+        print("🔧 Finalizing CRD setup...")
+        subprocess.run(['adduser', user, 'chrome-remote-desktop'])
+        subprocess.run(['su', '-', user, '-c', f'{CRP} --pin={Pin}'])
+        subprocess.run(['service', 'chrome-remote-desktop', 'start'])
 
 try:
-    LXQtInstaller(username)
+    if not CRP:
+        print("❌ Auth code required.")
+    elif len(Pin) < 6 or not Pin.isdigit():
+        print("❌ PIN must be at least 6 numeric digits.")
+    else:
+        CRD(username)
 except Exception as e:
     print("❌ Error:", str(e))
